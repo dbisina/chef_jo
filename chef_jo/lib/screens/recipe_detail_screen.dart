@@ -449,7 +449,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                         fontSize: 16,
                       ),
                     ),
-                    if (amount.isNotEmpty)
+                    if (amount?.isNotEmpty == true)
                       Text(
                         '$amount ${unit ?? ''}',
                         style: TextStyle(
