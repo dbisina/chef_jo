@@ -1,36 +1,17 @@
-// lib/main.dart
+// In your main.dart
 import 'package:flutter/material.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'package:provider/provider.dart';
-import 'config/theme.dart';
 import 'config/routes.dart';
-import 'config/firebase_config.dart';
-import 'config/env.dart';
-import 'services/auth_service.dart';
-import 'services/storage_service.dart';
-import 'screens/auth_screen.dart';
-import 'screens/home_screen.dart';
+import 'config/theme.dart';
 import 'screens/splash_screen.dart';
+import 'config/env.dart'; // For environment variables
 
 void main() async {
-  // Ensure Flutter is initialized
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Load environment variables first
+  // Initialize environment variables
   await EnvConfig.initialize();
   
-  // Initialize Firebase with proper configuration
-  await FirebaseConfig.initializeFirebase();
-  
-  runApp(
-    MultiProvider(
-      providers: [
-        ChangeNotifierProvider(create: (_) => AuthService()),
-        Provider(create: (_) => StorageService()),
-      ],
-      child: ChefJoApp(),
-    ),
-  );
+  runApp(ChefJoApp());
 }
 
 class ChefJoApp extends StatelessWidget {
@@ -44,8 +25,16 @@ class ChefJoApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       initialRoute: Routes.initial,
       routes: Routes.routes,
-      // Start with splash screen
-      home: SplashScreen(),
+      onUnknownRoute: (settings) {
+        // Fallback for unknown routes
+        return MaterialPageRoute(
+          builder: (context) => Scaffold(
+            body: Center(
+              child: Text('Route ${settings.name} not found'),
+            ),
+          ),
+        );
+      },
     );
   }
 }

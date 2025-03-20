@@ -5,7 +5,7 @@ import '../services/auth_service.dart';
 import '../services/storage_service.dart';
 import '../widgets/recipe_card.dart';
 import '../config/theme.dart';
-
+import '../config/routes.dart';
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
 
@@ -56,13 +56,13 @@ class _HomeScreenState extends State<HomeScreen> {
   void _navigateToRecipeDetail(Recipe recipe) {
     Navigator.pushNamed(
       context,
-      '/recipe_detail',
+      '/detail',
       arguments: recipe,
     );
   }
 
   void _navigateToGenerateRecipe() {
-    Navigator.pushNamed(context, '/recipe_generator');
+    Navigator.pushNamed(context, Routes.recipeGenerator);
   }
 
   @override
@@ -94,7 +94,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     
                     // Recent Recipes
                     _buildSectionTitle('Recently Viewed', onSeeAll: () {
-                      Navigator.pushNamed(context, '/recipes', arguments: 'recent');
+                      Navigator.pushNamed(context, Routes.recipes, arguments: 'recent');
                     }),
                     SizedBox(height: 12),
                     _buildHorizontalRecipeList(_recentRecipes),
@@ -103,7 +103,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     
                     // Favorite Recipes
                     _buildSectionTitle('Your Favorites', onSeeAll: () {
-                      Navigator.pushNamed(context, '/recipes', arguments: 'favorites');
+                      Navigator.pushNamed(context, Routes.recipes, arguments: 'favorites');
                     }),
                     SizedBox(height: 12),
                     _favoriteRecipes.isEmpty
