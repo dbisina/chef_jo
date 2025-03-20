@@ -1,4 +1,4 @@
-// screens/profile_screen.dart
+// Fix for profile_screen.dart
 import 'package:flutter/material.dart';
 import '../models/user_model.dart';
 import '../services/auth_service.dart';
@@ -17,7 +17,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final AuthService _authService = AuthService();
   final StorageService _storageService = StorageService();
   
-  late User _user;
+  late UserModel _user;
   bool _isLoading = true;
   bool _isSaving = false;
   
@@ -57,10 +57,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     try {
       // Load user profile
-      final user = await _authService.getCurrentUser();
-      if (user != null) {
-        _nameController.text = user.name;
-        _user = user;
+      final userData = await _authService.getUserData();
+      if (userData != null) {
+        _user = userData;
+        _nameController.text = _user.name;
+      } else {
+        // Create default user if not found
+        _user = UserModel(
+          uid: _authService.currentUser?.uid ?? '',
+          email: _authService.currentUser?.email ?? '',
+          name: _authService.currentUser?.displayName ?? 'User',
+          notificationsEnabled: true,
+          darkMode: false,
+        );
+        _nameController.text = _user.name;
       }
       
       // Load preferences
@@ -107,10 +117,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
     });
 
     try {
-      // Update user profile
-      await _authService.updateUserProfile(
+      // Create updated user
+      UserModel updatedUser = _user.copyWith(
         name: _nameController.text.trim(),
+        notificationsEnabled: _user.notificationsEnabled,
+        darkMode: _user.darkMode,
       );
+      
+      // Update user profile
+      await _authService.updateUserProfile(updatedUser);
       
       // Save preferences
       await _storageService.saveUserPreferences(_dietaryPreferences);
@@ -120,6 +135,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       
       if (mounted) {
         setState(() {
+          _user = updatedUser;
           _isSaving = false;
         });
         
@@ -424,7 +440,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           value: _user.notificationsEnabled,
           onChanged: (value) {
             setState(() {
-              _user.notificationsEnabled = value;
+              _user = _user.copyWith(notificationsEnabled: value);
             });
           },
         ),
@@ -433,11 +449,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
           value: _user.darkMode,
           onChanged: (value) {
             setState(() {
-              _user.darkMode = value;
+              _user = _user.copyWith(darkMode: value);
             });
           },
         ),
       ],
-    ); 
+    );
   }
 }

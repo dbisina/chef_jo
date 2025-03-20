@@ -1,66 +1,66 @@
-// models/user_model.dart
-class UserModel {
+// models/user_profile.dart
+class UserProfile {
   final String uid;
   final String email;
   final String name;
+  final String? photoUrl;
   final List<String> dietaryPreferences;
   final List<String> allergies;
-  final List<String> savedRecipes;
-  bool notificationsEnabled; // Added property
-  bool darkMode; // Added property
+  final bool notificationsEnabled;
+  final bool darkMode;
 
-  UserModel({
+  UserProfile({
     required this.uid,
     required this.email,
     required this.name,
+    this.photoUrl,
     this.dietaryPreferences = const [],
     this.allergies = const [],
-    this.savedRecipes = const [],
-    this.notificationsEnabled = true, // Default to true
-    this.darkMode = false, // Default to false
+    this.notificationsEnabled = true,
+    this.darkMode = false,
   });
 
-  factory UserModel.fromJson(Map<String, dynamic> json) {
-    return UserModel(
-      uid: json['uid'] ?? '',
-      email: json['email'] ?? '',
-      name: json['name'] ?? '',
-      dietaryPreferences: List<String>.from(json['dietaryPreferences'] ?? []),
-      allergies: List<String>.from(json['allergies'] ?? []),
-      savedRecipes: List<String>.from(json['savedRecipes'] ?? []),
-      notificationsEnabled: json['notificationsEnabled'] ?? true,
-      darkMode: json['darkMode'] ?? false,
+  factory UserProfile.fromMap(Map<String, dynamic> map) {
+    return UserProfile(
+      uid: map['uid'] ?? '',
+      email: map['email'] ?? '',
+      name: map['name'] ?? '',
+      photoUrl: map['photoUrl'],
+      dietaryPreferences: List<String>.from(map['dietaryPreferences'] ?? []),
+      allergies: List<String>.from(map['allergies'] ?? []),
+      notificationsEnabled: map['notificationsEnabled'] ?? true,
+      darkMode: map['darkMode'] ?? false,
     );
   }
 
-  Map<String, dynamic> toJson() {
+  Map<String, dynamic> toMap() {
     return {
       'uid': uid,
       'email': email,
       'name': name,
+      'photoUrl': photoUrl,
       'dietaryPreferences': dietaryPreferences,
       'allergies': allergies,
-      'savedRecipes': savedRecipes,
       'notificationsEnabled': notificationsEnabled,
       'darkMode': darkMode,
     };
   }
 
-  UserModel copyWith({
+  UserProfile copyWith({
     String? name,
+    String? photoUrl,
     List<String>? dietaryPreferences,
     List<String>? allergies,
-    List<String>? savedRecipes,
     bool? notificationsEnabled,
     bool? darkMode,
   }) {
-    return UserModel(
+    return UserProfile(
       uid: this.uid,
       email: this.email,
       name: name ?? this.name,
+      photoUrl: photoUrl ?? this.photoUrl,
       dietaryPreferences: dietaryPreferences ?? this.dietaryPreferences,
       allergies: allergies ?? this.allergies,
-      savedRecipes: savedRecipes ?? this.savedRecipes,
       notificationsEnabled: notificationsEnabled ?? this.notificationsEnabled,
       darkMode: darkMode ?? this.darkMode,
     );

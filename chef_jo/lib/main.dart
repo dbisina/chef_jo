@@ -3,13 +3,15 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
 import 'config/theme.dart';
 import 'config/routes.dart';
+import 'config/firebase_config.dart';
 import 'services/auth_service.dart';
 import 'screens/auth_screen.dart';
 import 'screens/home_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp();
+  await FirebaseConfig.initializeFirebase();
+  
   runApp(
     ChangeNotifierProvider(
       create: (_) => AuthService(),

@@ -1,5 +1,6 @@
 // models/recipe_model.dart
 import 'ingredient_model.dart';
+
 /// A class representing a recipe.
 /// It contains various properties such as title, description, ingredients,
 /// instructions, and nutritional information.
@@ -19,6 +20,10 @@ class Recipe {
   final int servings;
   final Map<String, double> nutritionInfo;
   final double matchPercentage;
+  final List<String> tags; // Added missing property
+  final int calories; // Added missing property
+  final int availableIngredients; // Added missing property
+  final List<Ingredient> missingIngredients; // Added missing property
 
   Recipe({
     required this.id,
@@ -33,6 +38,10 @@ class Recipe {
     required this.servings,
     required this.nutritionInfo,
     this.matchPercentage = 0.0,
+    this.tags = const [], // Default empty list
+    this.calories = 0, // Default to 0
+    this.availableIngredients = 0, // Default to 0
+    this.missingIngredients = const [], // Default empty list
   });
 
   factory Recipe.fromJson(Map<String, dynamic> json) {
@@ -51,6 +60,12 @@ class Recipe {
       servings: json['servings'] ?? 2,
       nutritionInfo: Map<String, double>.from(json['nutritionInfo'] ?? {}),
       matchPercentage: json['matchPercentage']?.toDouble() ?? 0.0,
+      tags: List<String>.from(json['tags'] ?? []),
+      calories: json['calories'] ?? 0,
+      availableIngredients: json['availableIngredients'] ?? 0,
+      missingIngredients: (json['missingIngredients'] as List?)
+          ?.map((i) => Ingredient.fromJson(i))
+          .toList() ?? [],
     );
   }
 
@@ -68,6 +83,10 @@ class Recipe {
       'servings': servings,
       'nutritionInfo': nutritionInfo,
       'matchPercentage': matchPercentage,
+      'tags': tags,
+      'calories': calories,
+      'availableIngredients': availableIngredients,
+      'missingIngredients': missingIngredients.map((i) => i.toJson()).toList(),
     };
   }
 }
