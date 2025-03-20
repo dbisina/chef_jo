@@ -4,6 +4,7 @@ import '../models/recipe_model.dart';
 import '../services/storage_service.dart';
 import '../widgets/custom_button.dart';
 import '../config/theme.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class RecipeDetailScreen extends StatefulWidget {
   final Recipe recipe;
@@ -21,6 +22,8 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
   final StorageService _storageService = StorageService();
   bool _isSaved = false;
   bool _isSaving = false;
+  bool _isImageLoading = true;
+  bool _imageError = false;
 
   @override
   void initState() {
@@ -29,10 +32,17 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
   }
 
   Future<void> _checkIfRecipeIsSaved() async {
-    final savedRecipes = await _storageService.getSavedRecipes();
-    setState(() {
-      _isSaved = savedRecipes.any((recipe) => recipe.id == widget.recipe.id);
-    });
+    try {
+      final savedRecipes = await _storageService.getSavedRecipes();
+      if (mounted) {
+        setState(() {
+          _isSaved = savedRecipes.any((recipe) => recipe.id == widget.recipe.id);
+        });
+      }
+    } catch (e) {
+      print('Error checking if recipe is saved: $e');
+      // Don't update state if there's an error
+    }
   }
 
   Future<void> _toggleSaveRecipe() async {
@@ -67,7 +77,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error: ${e.toString()}'),
+          content: Text('Error: ${e.toString().substring(0, 50)}...'),
           duration: Duration(seconds: 2),
         ),
       );
@@ -85,9 +95,41 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
             pinned: true,
             flexibleSpace: FlexibleSpaceBar(
               background: widget.recipe.imageUrl != null
-                  ? Image.network(
-                      widget.recipe.imageUrl!,
+                  ? CachedNetworkImage(
+                      imageUrl: widget.recipe.imageUrl!,
                       fit: BoxFit.cover,
+                      placeholder: (context, url) => Container(
+                        color: ChefJoTheme.primaryColor.withOpacity(0.1),
+                        child: Center(
+                          child: CircularProgressIndicator(),
+                        ),
+                      ),
+                      errorWidget: (context, url, error) {
+                        return Container(
+                          color: ChefJoTheme.primaryColor.withOpacity(0.1),
+                          child: Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.restaurant,
+                                  size: 64,
+                                  color: ChefJoTheme.primaryColor,
+                                ),
+                                SizedBox(height: 8),
+                                Text(
+                                  widget.recipe.title,
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    color: ChefJoTheme.primaryColor,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
                     )
                   : Container(
                       color: ChefJoTheme.primaryColor.withOpacity(0.1),
@@ -101,7 +143,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                     ),
               title: Container(
                 width: double.infinity,
-                color: Colors.black.withOpacity(0.3),
+                color: Colors.black.withOpacity(0.5),
                 padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 child: Text(
                   widget.recipe.title,
@@ -182,6 +224,11 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                   
                   SizedBox(height: 24),
                   
+                  // Nutrition Information
+                  _buildNutritionInfo(),
+                  
+                  SizedBox(height: 24),
+                  
                   // Tags
                   if (widget.recipe.tags.isNotEmpty) _buildTags(),
                   
@@ -196,8 +243,10 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                           icon: Icons.restaurant,
                           onPressed: () {
                             // Navigate to cooking mode or timer
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('Cooking mode coming soon!')),
+                            Navigator.pushNamed(
+                              context, 
+                              '/cooking_mode',
+                              arguments: widget.recipe,
                             );
                           },
                         ),
@@ -224,6 +273,31 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
   }
 
   Widget _buildInfoCards() {
+    // Values to display with fallbacks
+    final prepTime = widget.recipe.prepTimeMinutes > 0 
+        ? widget.recipe.prepTimeMinutes 
+        : 15; // Default to 15 if missing
+    final cookTime = widget.recipe.cookTimeMinutes > 0 
+        ? widget.recipe.cookTimeMinutes 
+        : 30; // Default to 30 if missing
+    final servings = widget.recipe.servings > 0 
+        ? widget.recipe.servings 
+        : 4; // Default to 4 if missing
+    final calories = widget.recipe.calories > 0 
+        ? widget.recipe.calories 
+        : 0; // 0 if missing
+        
+    // Nutritional values with fallbacks  
+    final protein = widget.recipe.nutritionInfo.containsKey('protein') 
+        ? widget.recipe.nutritionInfo['protein']?.toStringAsFixed(1)
+        : "N/A";
+    final carbs = widget.recipe.nutritionInfo.containsKey('carbs') 
+        ? widget.recipe.nutritionInfo['carbs']?.toStringAsFixed(1)
+        : "N/A";
+    final fat = widget.recipe.nutritionInfo.containsKey('fat') 
+        ? widget.recipe.nutritionInfo['fat']?.toStringAsFixed(1)
+        : "N/A";
+
     return Container(
       height: 100,
       child: ListView(
@@ -232,37 +306,37 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
           _buildInfoCard(
             icon: Icons.access_time,
             title: 'Prep Time',
-            value: '${widget.recipe.prepTimeMinutes} min',
+            value: '$prepTime min',
           ),
           _buildInfoCard(
             icon: Icons.whatshot,
             title: 'Cook Time',
-            value: '${widget.recipe.cookTimeMinutes} min',
+            value: '$cookTime min',
           ),
           _buildInfoCard(
             icon: Icons.people,
             title: 'Servings',
-            value: '${widget.recipe.servings}',
+            value: '$servings',
           ),
-          _buildInfoCard(
+          if (calories > 0) _buildInfoCard(
             icon: Icons.local_fire_department,
             title: 'Calories',
-            value: '${widget.recipe.calories} cal',
+            value: '$calories cal',
           ),
-          _buildInfoCard(
+          if (protein != "N/A") _buildInfoCard(
             icon: Icons.fitness_center,
             title: 'Protein',
-            value: '${widget.recipe.nutritionInfo['protein']}g',
+            value: '${protein}g',
           ),
-          _buildInfoCard(
+          if (carbs != "N/A") _buildInfoCard(
             icon: Icons.bakery_dining,
             title: 'Carbs',
-            value: '${widget.recipe.nutritionInfo['carbs']}g',
+            value: '${carbs}g',
           ),
-          _buildInfoCard(
+          if (fat != "N/A") _buildInfoCard(
             icon: Icons.opacity,
             title: 'Fat',
-            value: '${widget.recipe.nutritionInfo['fat']}g',
+            value: '${fat}g',
           ),
         ],
       ),
@@ -311,10 +385,28 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
   }
 
   Widget _buildIngredientsList() {
+    if (widget.recipe.ingredients.isEmpty) {
+      return Text(
+        'No ingredients available. This recipe might be incomplete.',
+        style: TextStyle(fontStyle: FontStyle.italic),
+      );
+    }
+    
     return Column(
       children: widget.recipe.ingredients.asMap().entries.map((entry) {
         final index = entry.key;
         final ingredient = entry.value;
+        
+        // Handle missing ingredient properties safely
+        final name = ingredient.name.isNotEmpty 
+            ? ingredient.name 
+            : 'Ingredient ${index + 1}';
+        final amount = ingredient.amount?.isNotEmpty == true
+            ? ingredient.amount
+            : '';
+        final unit = ingredient.unit?.isNotEmpty == true
+            ? ingredient.unit
+            : '';
         
         return Container(
           padding: EdgeInsets.symmetric(vertical: 8),
@@ -351,15 +443,15 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      ingredient.name,
+                      name,
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
                       ),
                     ),
-                    if (ingredient.amount.isNotEmpty)
+                    if (amount.isNotEmpty)
                       Text(
-                        '${ingredient.amount} ${ingredient.unit}',
+                        '$amount ${unit ?? ''}',
                         style: TextStyle(
                           color: Colors.grey[600],
                         ),
@@ -367,7 +459,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                   ],
                 ),
               ),
-              if (ingredient.inPantry != null && ingredient.inPantry!)
+              if (ingredient.inPantry == true)
                 Container(
                   padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
@@ -391,6 +483,13 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
   }
 
   Widget _buildInstructionsList() {
+    if (widget.recipe.instructions.isEmpty) {
+      return Text(
+        'No instructions available. This recipe might be incomplete.',
+        style: TextStyle(fontStyle: FontStyle.italic),
+      );
+    }
+    
     return Column(
       children: widget.recipe.instructions.asMap().entries.map((entry) {
         final index = entry.key;
@@ -501,6 +600,69 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
               }).toList(),
             ),
           ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNutritionInfo() {
+    // Skip if no nutrition info available
+    if (widget.recipe.nutritionInfo.isEmpty) {
+      return SizedBox.shrink();
+    }
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Nutrition Information',
+          style: Theme.of(context).textTheme.titleLarge,
+        ),
+        SizedBox(height: 16),
+        Container(
+          padding: EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.grey[100],
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            children: [
+              _buildNutritionRow('Calories', '${widget.recipe.calories} cal'),
+              if (widget.recipe.nutritionInfo.containsKey('protein'))
+                _buildNutritionRow('Protein', '${widget.recipe.nutritionInfo['protein']?.toStringAsFixed(1)}g'),
+              if (widget.recipe.nutritionInfo.containsKey('carbs'))
+                _buildNutritionRow('Carbohydrates', '${widget.recipe.nutritionInfo['carbs']?.toStringAsFixed(1)}g'),
+              if (widget.recipe.nutritionInfo.containsKey('fat'))
+                _buildNutritionRow('Fat', '${widget.recipe.nutritionInfo['fat']?.toStringAsFixed(1)}g'),
+              if (widget.recipe.nutritionInfo.containsKey('fiber'))
+                _buildNutritionRow('Fiber', '${widget.recipe.nutritionInfo['fiber']?.toStringAsFixed(1)}g'),
+              if (widget.recipe.nutritionInfo.containsKey('sugar'))
+                _buildNutritionRow('Sugar', '${widget.recipe.nutritionInfo['sugar']?.toStringAsFixed(1)}g'),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildNutritionRow(String label, String value) {
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          Text(
+            value,
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
         ],
       ),
     );

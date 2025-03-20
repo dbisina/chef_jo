@@ -4,13 +4,15 @@ import 'package:http/http.dart' as http;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/recipe_model.dart';
 import '../models/ingredient_model.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class RecipeService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   
-  // This URL would be your Firebase Cloud Function or other API endpoint
-  // For AI integration, you would typically use a cloud function or external AI service
-  final String apiUrl = 'YOUR_RECIPE_API_ENDPOINT';
+  // Get AI API key from environment variables
+  // Add flutter_dotenv package to pubspec.yaml first
+  final String _apiKey = dotenv.env['AI_API_KEY'] ?? '';
+  final String _apiUrl = dotenv.env['AI_API_URL'] ?? 'https://api.openai.com/v1/chat/completions';
   
   Future<List<Recipe>> generateRecipes({
     required List<Ingredient> ingredients,
@@ -21,45 +23,63 @@ class RecipeService {
     int limit = 5,
   }) async {
     try {
-      // For AI integration, you would call your AI service here
-      // The following is a placeholder implementation that simulates AI generation
+      // For larger number of ingredients, use AI generation
+      if (ingredients.length >= 3) {
+        return await generateRecipesWithAI(
+          ingredients: ingredients,
+          cuisine: cuisine,
+          mealType: mealType,
+          dietaryRestrictions: dietaryRestrictions,
+        );
+      }
       
-      // 1. Prepare the input for AI
-      final ingredientNames = ingredients.map((i) => i.name).toList();
+      // Fall back to database for simpler queries
+      List<String> ingredientNames = ingredients.map((i) => i.name.toLowerCase()).toList();
       
-      // 2. Call AI service (simulated for now)
-      // Simulate API processing time
-      await Future.delayed(Duration(seconds: 2));
+      // Create a query to find recipes containing the ingredients
+      Query query = _firestore.collection('recipes');
       
-      // 3. Get recipes from Firestore (simulating ML model results)
-      QuerySnapshot snapshot = await _firestore
-          .collection('recipes')
-          .limit(limit)
-          .get();
-          
+      // Apply filters for cuisine if specified
+      if (cuisine != null && cuisine != 'Any') {
+        query = query.where('cuisineTypes', arrayContains: cuisine);
+      }
+      
+      // Apply filter for meal type if specified
+      if (mealType != null && mealType != 'Any') {
+        query = query.where('mealType', isEqualTo: mealType);
+      }
+      
+      // Apply filter for difficulty if specified
+      if (difficulty != null && difficulty != 'Any') {
+        query = query.where('difficulty', isEqualTo: difficulty);
+      }
+      
+      // Apply dietary restrictions filter if specified
+      if (dietaryRestrictions != null && dietaryRestrictions.isNotEmpty) {
+        for (String restriction in dietaryRestrictions) {
+          query = query.where('tags', arrayContains: restriction);
+        }
+      }
+      
+      // Execute the query
+      QuerySnapshot snapshot = await query.limit(limit).get();
+      
       List<Recipe> recipes = snapshot.docs
           .map((doc) => Recipe.fromJson(doc.data() as Map<String, dynamic>))
           .toList();
-          
-      // 4. Calculate match percentage (in real app, this would come from ML model)
+      
+      // Calculate match percentage and available ingredients
       List<Recipe> matchedRecipes = [];
       for (var recipe in recipes) {
-        // Simple matching algorithm for demonstration
         int matchedIngredients = 0;
         int availableIngredients = 0;
         List<Ingredient> missingIngredientsList = [];
         
         for (var recipeIngredient in recipe.ingredients) {
-          bool found = false;
-          for (var userIngredient in ingredients) {
-            if (recipeIngredient.name.toLowerCase() == userIngredient.name.toLowerCase()) {
-              found = true;
-              matchedIngredients++;
-              break;
-            }
-          }
+          bool found = ingredientNames.contains(recipeIngredient.name.toLowerCase());
           
           if (found) {
+            matchedIngredients++;
             availableIngredients++;
           } else {
             missingIngredientsList.add(recipeIngredient);
@@ -70,7 +90,6 @@ class RecipeService {
             ? (matchedIngredients / recipe.ingredients.length) * 100
             : 0;
         
-        // Create a new recipe with updated match percentage
         Recipe matchedRecipe = Recipe(
           id: recipe.id,
           title: recipe.title,
@@ -90,30 +109,10 @@ class RecipeService {
           calories: recipe.calories,
         );
         
-        // Filter by cuisine if specified
-        if (cuisine != null && cuisine != 'Any' && 
-            !recipe.cuisineTypes.contains(cuisine)) {
-          continue;
-        }
-        
-        // Apply dietary restrictions filter if specified
-        if (dietaryRestrictions != null && dietaryRestrictions.isNotEmpty) {
-          bool meetsRestrictions = true;
-          for (var restriction in dietaryRestrictions) {
-            // This is a simplified check - in a real app, you'd have more sophisticated filtering
-            if (!recipe.tags.contains(restriction)) {
-              meetsRestrictions = false;
-              break;
-            }
-          }
-          
-          if (!meetsRestrictions) continue;
-        }
-        
         matchedRecipes.add(matchedRecipe);
       }
       
-      // 5. Sort by match percentage
+      // Sort by match percentage
       matchedRecipes.sort((a, b) => b.matchPercentage.compareTo(a.matchPercentage));
       
       return matchedRecipes;
@@ -123,7 +122,6 @@ class RecipeService {
     }
   }
   
-  // Future implementation for AI integration
   Future<List<Recipe>> generateRecipesWithAI({
     required List<Ingredient> ingredients,
     String? cuisine,
@@ -135,49 +133,140 @@ class RecipeService {
       final ingredientNames = ingredients.map((i) => i.name).join(', ');
       
       // 2. Build prompt for AI
-      String prompt = "Generate a recipe using these ingredients: $ingredientNames";
-      if (cuisine != null && cuisine != 'Any') {
-        prompt += ", in $cuisine cuisine";
-      }
-      if (mealType != null && mealType != 'Any') {
-        prompt += ", for $mealType";
-      }
-      if (dietaryRestrictions != null && dietaryRestrictions.isNotEmpty) {
-        prompt += ", with these dietary restrictions: ${dietaryRestrictions.join(', ')}";
+      String prompt = """
+      Generate 3 detailed recipes using these ingredients: $ingredientNames.
+      
+      ${cuisine != null && cuisine != 'Any' ? "The cuisine should be $cuisine." : ""}
+      ${mealType != null && mealType != 'Any' ? "It should be suitable for $mealType." : ""}
+      ${dietaryRestrictions != null && dietaryRestrictions.isNotEmpty ? "It must meet these dietary restrictions: ${dietaryRestrictions.join(', ')}." : ""}
+      
+      For each recipe, provide the following in JSON format:
+      {
+        "title": "Recipe Title",
+        "description": "Brief description",
+        "ingredients": [
+          {"name": "Ingredient Name", "amount": "Amount", "unit": "Unit"}
+        ],
+        "instructions": ["Step 1 instruction", "Step 2 instruction"],
+        "prepTimeMinutes": 15,
+        "cookTimeMinutes": 30,
+        "servings": 4,
+        "nutritionInfo": {
+          "calories": 350,
+          "protein": 20,
+          "carbs": 30,
+          "fat": 15
+        },
+        "tags": ["Tag1", "Tag2"]
       }
       
-      // 3. Call AI API - Uncomment and use your preferred AI service
-      /*
-      final response = await http.post(
-        Uri.parse(apiUrl),
-        body: jsonEncode({
-          'prompt': prompt,
-          'max_tokens': 1000,
-        }),
+      Return only the JSON array of recipes without any additional text.
+      """;
+      
+      // 3. Call AI API
+      var response = await http.post(
+        Uri.parse(_apiUrl),
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer YOUR_API_KEY'
+          'Authorization': 'Bearer $_apiKey'
         },
+        body: jsonEncode({
+          'model': 'gpt-4-turbo',  // Use appropriate model
+          'messages': [
+            {"role": "system", "content": "You are a professional chef specialized in creating recipes from available ingredients."},
+            {"role": "user", "content": prompt}
+          ],
+          'temperature': 0.7,
+          'max_tokens': 2000
+        }),
       );
       
       if (response.statusCode == 200) {
         final Map<String, dynamic> data = jsonDecode(response.body);
-        // Parse the AI response into Recipe objects
-        // This will depend on the format of your AI's response
-        // ...
+        String recipeContent = data['choices'][0]['message']['content'];
+        
+        // Extract JSON from the content (in case API returns text around it)
+        recipeContent = recipeContent.trim();
+        if (recipeContent.startsWith('```json')) {
+          recipeContent = recipeContent.substring(7);
+        }
+        if (recipeContent.endsWith('```')) {
+          recipeContent = recipeContent.substring(0, recipeContent.length - 3);
+        }
+        recipeContent = recipeContent.trim();
+        
+        // Parse the JSON response into Recipe objects
+        List<dynamic> recipeList = jsonDecode(recipeContent);
+        List<Recipe> recipes = [];
+        
+        for (var recipeJson in recipeList) {
+          // Create a unique ID for the recipe
+          String recipeId = DateTime.now().millisecondsSinceEpoch.toString() + 
+                            '_${recipeJson['title'].toString().toLowerCase().replaceAll(' ', '_')}';
+          
+          // Process ingredients
+          List<Ingredient> recipeIngredients = [];
+          for (var ing in recipeJson['ingredients']) {
+            recipeIngredients.add(Ingredient(
+              id: '${ing['name']}_${DateTime.now().millisecondsSinceEpoch}',
+              name: ing['name'],
+              amount: ing['amount'],
+              unit: ing['unit'],
+            ));
+          }
+          
+          // Determine which ingredients are already available
+          List<String> availableIngredientNames = ingredients.map((i) => i.name.toLowerCase()).toList();
+          List<Ingredient> missingIngredients = [];
+          int availableCount = 0;
+          
+          for (var ing in recipeIngredients) {
+            if (availableIngredientNames.contains(ing.name.toLowerCase())) {
+              availableCount++;
+            } else {
+              missingIngredients.add(ing);
+            }
+          }
+          
+          // Calculate match percentage
+          double matchPercentage = recipeIngredients.isNotEmpty
+              ? (availableCount / recipeIngredients.length) * 100
+              : 0;
+          
+          // Create the recipe object
+          Recipe recipe = Recipe(
+            id: recipeId,
+            title: recipeJson['title'],
+            description: recipeJson['description'],
+            cuisineTypes: cuisine != null && cuisine != 'Any' 
+                ? [cuisine] 
+                : ['General'],
+            ingredients: recipeIngredients,
+            instructions: List<String>.from(recipeJson['instructions']),
+            prepTimeMinutes: recipeJson['prepTimeMinutes'],
+            cookTimeMinutes: recipeJson['cookTimeMinutes'],
+            servings: recipeJson['servings'],
+            nutritionInfo: Map<String, double>.from(recipeJson['nutritionInfo']),
+            matchPercentage: matchPercentage,
+            availableIngredients: availableCount,
+            missingIngredients: missingIngredients,
+            tags: List<String>.from(recipeJson['tags']),
+            calories: recipeJson['nutritionInfo']['calories'].toInt(),
+          );
+          
+          recipes.add(recipe);
+        }
+        
+        // Save the generated recipes to Firestore for future reference
+        for (var recipe in recipes) {
+          await _firestore.collection('ai_generated_recipes').doc(recipe.id).set(recipe.toJson());
+        }
+        
+        return recipes;
       } else {
+        print('AI API Error: ${response.statusCode}, ${response.body}');
         throw Exception('Failed to call AI service: ${response.statusCode}');
       }
-      */
-      
-      // For now, return sample recipes
-      return generateRecipes(
-        ingredients: ingredients, 
-        cuisine: cuisine,
-        mealType: mealType,
-        dietaryRestrictions: dietaryRestrictions,
-      );
-      
     } catch (e) {
       print('Error generating recipes with AI: $e');
       throw Exception('Failed to generate recipes with AI: $e');
