@@ -4,6 +4,7 @@ import '../screens/home_screen.dart';
 import '../screens/recipe_screen.dart';
 import '../screens/recipe_detail_screen.dart';
 import '../screens/profile_screen.dart';
+import '../models/recipe_model.dart';
 
 class Routes {
   static const String initial = '/';
@@ -17,7 +18,7 @@ class Routes {
     auth: (context) => AuthScreen(),
     home: (context) => HomeScreen(),
     recipe: (context) => RecipeGeneratorScreen(),
-    detail: (context) => RecipeDetailScreen(recipe: String,),
+    detail: (context) => RecipeDetailScreen(recipe: ModalRoute.of(context)?.settings.arguments as Recipe),
     profile: (context) => ProfileScreen(),
   };
 }

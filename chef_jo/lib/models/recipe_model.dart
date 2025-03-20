@@ -1,4 +1,11 @@
 // models/recipe_model.dart
+import 'ingredient_model.dart';
+/// A class representing a recipe.
+/// It contains various properties such as title, description, ingredients,
+/// instructions, and nutritional information.
+/// The class also includes methods for JSON serialization and deserialization.
+/// The [Recipe] class is used to represent a recipe in the application.
+/// 
 class Recipe {
   final String id;
   final String title;
