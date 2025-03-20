@@ -43,7 +43,10 @@ class AuthService extends ChangeNotifier {
     }
   }
 
-  Future<UserCredential?> signIn(String email, String password) async {
+  Future<UserCredential> signIn({
+    required String email, 
+    required String password,
+  }) async {
     try {
       UserCredential result = await _auth.signInWithEmailAndPassword(
         email: email,
@@ -57,7 +60,11 @@ class AuthService extends ChangeNotifier {
     }
   }
 
-  Future<UserCredential?> signUp(String email, String password, String name) async {
+  Future<UserCredential> signUp({
+    required String email, 
+    required String password, 
+    required String name,
+  }) async {
     try {
       UserCredential result = await _auth.createUserWithEmailAndPassword(
         email: email,
@@ -65,14 +72,16 @@ class AuthService extends ChangeNotifier {
       );
       
       // Create user in Firestore
-      await _firestore.collection('users').doc(result.user!.uid).set({
-        'uid': result.user!.uid,
-        'email': email,
-        'name': name,
-        'dietaryPreferences': [],
-        'allergies': [],
-        'savedRecipes': [],
-      });
+      UserModel newUser = UserModel(
+        uid: result.user!.uid,
+        email: email,
+        name: name,
+      );
+      
+      await _firestore
+          .collection('users')
+          .doc(result.user!.uid)
+          .set(newUser.toJson());
       
       // Update display name
       await result.user!.updateDisplayName(name);
@@ -97,13 +106,59 @@ class AuthService extends ChangeNotifier {
   
   Future<void> updateUserProfile(UserModel updatedUser) async {
     try {
+      if (currentUser == null) throw Exception('User not authenticated');
+      
       await _firestore
           .collection('users')
           .doc(currentUser!.uid)
           .update(updatedUser.toJson());
+          
+      // Update display name if it changed
+      if (currentUser!.displayName != updatedUser.name) {
+        await currentUser!.updateDisplayName(updatedUser.name);
+      }
+      
       notifyListeners();
     } catch (e) {
       print('Error updating user profile: $e');
+      rethrow;
+    }
+  }
+  
+  Future<void> updatePassword(String newPassword) async {
+    try {
+      if (currentUser == null) throw Exception('User not authenticated');
+      
+      await currentUser!.updatePassword(newPassword);
+      notifyListeners();
+    } catch (e) {
+      print('Error updating password: $e');
+      rethrow;
+    }
+  }
+  
+  Future<void> sendPasswordResetEmail(String email) async {
+    try {
+      await _auth.sendPasswordResetEmail(email: email);
+    } catch (e) {
+      print('Error sending password reset email: $e');
+      rethrow;
+    }
+  }
+  
+  Future<void> deleteAccount() async {
+    try {
+      if (currentUser == null) throw Exception('User not authenticated');
+      
+      // Delete user data from Firestore
+      await _firestore.collection('users').doc(currentUser!.uid).delete();
+      
+      // Delete user authentication account
+      await currentUser!.delete();
+      
+      notifyListeners();
+    } catch (e) {
+      print('Error deleting account: $e');
       rethrow;
     }
   }

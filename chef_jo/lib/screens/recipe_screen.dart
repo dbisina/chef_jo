@@ -181,362 +181,62 @@ class _RecipeGeneratorScreenState extends State<RecipeGeneratorScreen> {
       ),
       body: _isLoadingPantry
           ? Center(child: CircularProgressIndicator())
-          : Column(
-              children: [
-                // Filter Section
-                _buildFilterSection(),
-                
-                // Selected Ingredients
-                if (_selectedIngredients.isNotEmpty)
-                  _buildSelectedIngredientsSection(),
-                
-                // Generate Button
-                Padding(
-                  padding: EdgeInsets.all(16),
-                  child: CustomButton(
-                    text: 'Generate Recipes',
-                    icon: Icons.auto_awesome,
-                    onPressed: _generateRecipes,
-                    isLoading: _isGenerating,
-                    fullWidth: true,
-                  ),
-                ),
-                
-                // Generated Recipes
-                if (_generatedRecipes.isNotEmpty)
-                  Expanded(
-                    child: _buildGeneratedRecipesSection(),
-                  )
-                else
-                  Expanded(
-                    child: _buildIngredientsSection(),
-                  ),
-              ],
-            ),
-    );
-  }
-
-  Widget _buildFilterSection() {
-    return Container(
-      padding: EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 5,
-            offset: Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Ingredient Search
-          TextFormField(
-            controller: _searchController,
-            decoration: InputDecoration(
-              hintText: 'Search ingredients',
-              prefixIcon: Icon(Icons.search),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              contentPadding: EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-            ),
-            onChanged: _filterIngredients,
-          ),
-          
-          SizedBox(height: 16),
-          
-          // Filter Dropdowns
-          Row(
-            children: [
-              Expanded(
-                child: _buildDropdown(
-                  label: 'Cuisine',
-                  value: _cuisine,
-                  items: _cuisineOptions,
-                  onChanged: (value) {
-                    setState(() {
-                      _cuisine = value ?? 'Any';
-                    });
-                  },
-                ),
-              ),
-              SizedBox(width: 8),
-              Expanded(
-                child: _buildDropdown(
-                  label: 'Meal',
-                  value: _mealType,
-                  items: _mealTypeOptions,
-                  onChanged: (value) {
-                    setState(() {
-                      _mealType = value ?? 'Any';
-                    });
-                  },
-                ),
-              ),
-              SizedBox(width: 8),
-              Expanded(
-                child: _buildDropdown(
-                  label: 'Difficulty',
-                  value: _difficulty,
-                  items: _difficultyOptions,
-                  onChanged: (value) {
-                    setState(() {
-                      _difficulty = value ?? 'Any';
-                    });
-                  },
-                ),
-              ),
-            ],
-          ),
-          
-          SizedBox(height: 16),
-          
-          // Dietary Preferences
-          Text(
-            'Dietary Preferences',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: _dietaryPreferences.entries.map((entry) {
-              return FilterChip(
-                label: Text(entry.key),
-                selected: entry.value,
-                selectedColor: ChefJoTheme.primaryColor.withOpacity(0.2),
-                checkmarkColor: ChefJoTheme.primaryColor,
-                onSelected: (selected) {
-                  setState(() {
-                    _dietaryPreferences[entry.key] = selected;
-                  });
-                },
-              );
-            }).toList(),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDropdown({
-    required String label,
-    required String value,
-    required List<String> items,
-    required ValueChanged<String?> onChanged,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        SizedBox(height: 4),
-        Container(
-          padding: EdgeInsets.symmetric(horizontal: 12),
-          decoration: BoxDecoration(
-            border: Border.all(color: Colors.grey.shade300),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: DropdownButton<String>(
-            value: value,
-            isExpanded: true,
-            underline: SizedBox(),
-            icon: Icon(Icons.arrow_drop_down),
-            items: items.map((String item) {
-              return DropdownMenuItem<String>(
-                value: item,
-                child: Text(item),
-              );
-            }).toList(),
-            onChanged: onChanged,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSelectedIngredientsSection() {
-    return Container(
-      padding: EdgeInsets.all(16),
-      color: ChefJoTheme.primaryColor.withOpacity(0.05),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Selected Ingredients (${_selectedIngredients.length})',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              TextButton(
-                onPressed: () {
-                  setState(() {
-                    _selectedIngredients.clear();
-                  });
-                },
-                child: Text('Clear All'),
-              ),
-            ],
-          ),
-          SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: _selectedIngredients.map((ingredient) {
-              return IngredientChip(
-                ingredient: ingredient,
-                onTap: () => _toggleIngredientSelection(ingredient),
-                removable: true,
-              );
-            }).toList(),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildIngredientsSection() {
-  return Padding(
-    padding: EdgeInsets.all(16),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Select Ingredients',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        SizedBox(height: 16),
-        if (_filteredIngredients.isEmpty)
-          Expanded(
-            child: Center(
+          : Padding(
+              padding: const EdgeInsets.all(16.0),
               child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(
-                    Icons.search_off,
-                    size: 64,
-                    color: Colors.grey,
+                  TextField(
+                    controller: _searchController,
+                    decoration: InputDecoration(
+                      labelText: 'Search Ingredients',
+                      suffixIcon: IconButton(
+                        icon: Icon(Icons.clear),
+                        onPressed: () {
+                          _searchController.clear();
+                          _filterIngredients('');
+                        },
+                      ),
+                    ),
+                    onChanged: _filterIngredients,
                   ),
                   SizedBox(height: 16),
-                  Text(
-                    'No ingredients found',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.grey,
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: _filteredIngredients.length,
+                      itemBuilder: (context, index) {
+                        final ingredient = _filteredIngredients[index];
+                        return IngredientChip(
+                          ingredient: ingredient,
+                          isSelected: _selectedIngredients
+                              .any((item) => item.id == ingredient.id),
+                          onSelected: () => _toggleIngredientSelection(ingredient),
+                        );
+                      },
                     ),
                   ),
-                  SizedBox(height: 8),
-                  TextButton(
-                    onPressed: () => Navigator.pushNamed(context, '/pantry'),
-                    child: Text('Add ingredients to your pantry'),
+                  SizedBox(height: 16),
+                  CustomButton(
+                    text: 'Generate Recipes',
+                    onPressed: _generateRecipes,
+                    isLoading: _isGenerating,
                   ),
+                  SizedBox(height: 16),
+                  if (_generatedRecipes.isNotEmpty)
+                    Expanded(
+                      child: ListView.builder(
+                        itemCount: _generatedRecipes.length,
+                        itemBuilder: (context, index) {
+                          final recipe = _generatedRecipes[index];
+                          return RecipeCard(
+                            recipe: recipe,
+                            onTap: () => _navigateToRecipeDetail(recipe),
+                          );
+                        },
+                      ),
+                    ),
                 ],
               ),
             ),
-          )
-        else
-          Expanded(
-            child: GridView.builder(
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 3,
-                childAspectRatio: 2.5,
-                crossAxisSpacing: 10,
-                mainAxisSpacing: 10,
-              ),
-              itemCount: _filteredIngredients.length,
-              itemBuilder: (context, index) {
-                final ingredient = _filteredIngredients[index];
-                final isSelected = _selectedIngredients
-                    .any((item) => item.id == ingredient.id);
-                
-                return InkWell(
-                  onTap: () => _toggleIngredientSelection(ingredient),
-                  borderRadius: BorderRadius.circular(10),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? ChefJoTheme.primaryColor
-                          : ChefJoTheme.primaryColor.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    padding: EdgeInsets.symmetric(horizontal: 8),
-                    child: Center(
-                      child: Text(
-                        ingredient.name,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: isSelected ? Colors.white : Colors.black87,
-                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-      ],
-    ),
-  );
-}
-
-// Implement _buildGeneratedRecipesSection
-Widget _buildGeneratedRecipesSection() {
-  return Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Padding(
-        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        child: Text(
-          'Generated Recipes (${_generatedRecipes.length})',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ),
-      Expanded(
-        child: ListView.builder(
-          padding: EdgeInsets.all(16),
-          itemCount: _generatedRecipes.length,
-          itemBuilder: (context, index) {
-            final recipe = _generatedRecipes[index];
-            return Padding(
-              padding: EdgeInsets.only(bottom: 16),
-              child: RecipeCard(
-                recipe: recipe,
-                onTap: () => _navigateToRecipeDetail(recipe),
-              ),
-            );
-          },
-        ),
-      ),
-    ],
-  );
-}
-
-@override
-void dispose() {
-  _searchController.dispose();
-  super.dispose();
+    );
+  }
 }
